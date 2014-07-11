@@ -33,6 +33,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
+import android.text.format.Formatter;
 import android.util.Log;
 
 public class NetworkManager extends CordovaPlugin {
@@ -76,6 +79,7 @@ public class NetworkManager extends CordovaPlugin {
     private boolean registered = false;
 
     ConnectivityManager sockMan;
+    WifiManager wifiManager;
     BroadcastReceiver receiver;
     private JSONObject lastInfo = null;
 
@@ -96,6 +100,7 @@ public class NetworkManager extends CordovaPlugin {
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
         this.sockMan = (ConnectivityManager) cordova.getActivity().getSystemService(Context.CONNECTIVITY_SERVICE);
+        this.wifiManager = (WifiManager) cordova.getActivity().getSystemService(Context.WIFI_SERVICE);
         this.connectionCallbackContext = null;
 
         // We need to listen to connectivity events to update navigator.connection
@@ -107,7 +112,7 @@ public class NetworkManager extends CordovaPlugin {
                 public void onReceive(Context context, Intent intent) {
                     // (The null check is for the ARM Emulator, please use Intel Emulator for better results)
                     if(NetworkManager.this.webView != null)
-                        updateConnectionInfo(sockMan.getActiveNetworkInfo());
+                        updateConnectionInfo(sockMan.getActiveNetworkInfo(), wifiManager.isWifiEnabled() ? wifiManager.getConnectionInfo() : null);
                 }
             };
             cordova.getActivity().registerReceiver(this.receiver, intentFilter);
@@ -127,10 +132,11 @@ public class NetworkManager extends CordovaPlugin {
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
         if (action.equals("getConnectionInfo")) {
             this.connectionCallbackContext = callbackContext;
-            NetworkInfo info = sockMan.getActiveNetworkInfo();
+            NetworkInfo network = sockMan.getActiveNetworkInfo();
+            WifiInfo wifi = wifiManager.getConnectionInfo();
             String connectionType = "";
             try {
-                connectionType = this.getConnectionInfo(info).get("type").toString();
+                connectionType = this.getConnectionInfo(network, wifi).get("type").toString();
             } catch (JSONException e) { }
 
             PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, connectionType);
@@ -162,21 +168,24 @@ public class NetworkManager extends CordovaPlugin {
     /**
      * Updates the JavaScript side whenever the connection changes
      *
-     * @param info the current active network info
+     * @param network the current active network info
+     * @param wifi the current active wifi info
      * @return
      */
-    private void updateConnectionInfo(NetworkInfo info) {
+    private void updateConnectionInfo(NetworkInfo network, WifiInfo wifi) {
         // send update to javascript "navigator.network.connection"
         // Jellybean sends its own info
-        JSONObject thisInfo = this.getConnectionInfo(info);
+        JSONObject thisInfo = this.getConnectionInfo(network, wifi);
         if(!thisInfo.equals(lastInfo))
         {
             String connectionType = "";
+            JSONObject wifiInfo = null;
             try {
                 connectionType = thisInfo.get("type").toString();
+                wifiInfo = (JSONObject) thisInfo.get("wifi");
             } catch (JSONException e) { }
 
-            sendUpdate(connectionType);
+            sendUpdate(connectionType, wifiInfo);
             lastInfo = thisInfo;
         }
     }
@@ -185,20 +194,32 @@ public class NetworkManager extends CordovaPlugin {
      * Get the latest network connection information
      *
      * @param info the current active network info
+     * @param wifi the current active wifi info
      * @return a JSONObject that represents the network info
      */
-    private JSONObject getConnectionInfo(NetworkInfo info) {
+    private JSONObject getConnectionInfo(NetworkInfo network, WifiInfo wifi) {
         String type = TYPE_NONE;
         String extraInfo = "";
-        if (info != null) {
+        if (network != null) {
             // If we are not connected to any network set type to none
-            if (!info.isConnected()) {
+            if (!network.isConnected()) {
                 type = TYPE_NONE;
             }
             else {
-                type = getType(info);
+                type = getType(network);
             }
-            extraInfo = info.getExtraInfo();
+            extraInfo = network.getExtraInfo();
+        }
+
+        JSONObject wifiInfo = new JSONObject();
+        if (wifi != null) {
+            try {
+                wifiInfo.put("bssid", wifi.getBSSID())
+                .put("ssid", wifi.getSSID())
+                .put("ipaddress", Formatter.formatIpAddress(wifi.getIpAddress()))
+                .put("macaddress", wifi.getMacAddress())
+                .put("networkid", wifi.getNetworkId());
+            } catch (JSONException e) { }
         }
 
         Log.d("CordovaNetworkManager", "Connection Type: " + type);
@@ -208,6 +229,7 @@ public class NetworkManager extends CordovaPlugin {
 
         try {
             connectionInfo.put("type", type);
+            connectionInfo.put("wifi", wifiInfo);
             connectionInfo.put("extraInfo", extraInfo);
         } catch (JSONException e) { }
 
@@ -217,11 +239,17 @@ public class NetworkManager extends CordovaPlugin {
     /**
      * Create a new plugin result and send it back to JavaScript
      *
-     * @param connection the network info to set as navigator.connection
+     * @param connection the network info to set as navigator.connection.type
+     * @param wifi the wifi info to set as navigator.connection.wifi
      */
-    private void sendUpdate(String type) {
+    private void sendUpdate(String type, JSONObject wifi) {
         if (connectionCallbackContext != null) {
-            PluginResult result = new PluginResult(PluginResult.Status.OK, type);
+            JSONObject o = new JSONObject();
+            try {
+                o.put("type", type);
+                o.put("wifi", wifi);
+            } catch (JSONException e) { }
+            PluginResult result = new PluginResult(PluginResult.Status.OK, o);
             result.setKeepCallback(true);
             connectionCallbackContext.sendPluginResult(result);
         }
@@ -269,5 +297,5 @@ public class NetworkManager extends CordovaPlugin {
         }
         return TYPE_UNKNOWN;
     }
-}
 
+}

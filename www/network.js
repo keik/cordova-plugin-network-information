@@ -55,7 +55,8 @@ channel.waitForInitialization('onCordovaConnectionReady');
 
 channel.onCordovaReady.subscribe(function() {
     me.getInfo(function(info) {
-        me.type = info;
+        me.type = info.type;
+        me.wifi = info.wifi;
         if (info === "none") {
             // set a timer if still offline at the end of timer send the offline event
             timerId = setTimeout(function(){

@@ -56,6 +56,7 @@ xmlns:android="http://schemas.android.com/apk/res/android"
 
         <config-file target="AndroidManifest.xml" parent="/*">
             <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+            <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
         </config-file>
 
         <source-file src="src/android/NetworkManager.java" target-dir="src/org/apache/cordova/networkinformation" />
@@ -67,15 +68,15 @@ xmlns:android="http://schemas.android.com/apk/res/android"
         <config-file target="res/xml/config.xml" parent="/*">
             <feature name="NetworkStatus">
                 <param name="android-package" value="org.apache.cordova.networkinformation.NetworkManager"/>
-            </feature>   
+            </feature>
         </config-file>
-        
+
         <config-file target="AndroidManifest.xml" parent="/*">
             <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
         </config-file>
 
         <source-file src="src/android/NetworkManager.java" target-dir="src/org/apache/cordova/networkinformation" />
-        
+
     </platform>
 
 
