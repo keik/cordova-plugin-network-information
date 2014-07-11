@@ -1,3 +1,4 @@
+
 <!---
  license: Licensed to the Apache Software Foundation (ASF) under one
          or more contributor license agreements.  See the NOTICE file
@@ -19,4 +20,8 @@
 
 # org.apache.cordova.network-information
 
-Plugin documentation: [doc/index.md](doc/index.md)
+Adding the function which get the information of current Wi-Fi access point such a SSID (but Android only).
+
+```javascript
+console.log(navigator.connection.wifi); // -> { ssid: '<your-ssid>', ipaddress: '<your-ipaddress>', macaddress: '<your-macaddress>', networkid: '<your-networkid>' }
+```
